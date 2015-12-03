@@ -1,7 +1,6 @@
 #!/usr/bin/env python
-"""Stitch contigs together by means of Mummer's nucmer and fill gap
+"""Stitch contigs together by means of Mummer's nucmer and fill gaps
 with given reference sequence
-
 """
 
 #--- standard library imports
@@ -14,7 +13,10 @@ import subprocess
 import tempfile
 import shutil
 from itertools import groupby
-import string
+if sys.version_info.major == 2:
+    from string import maketrans
+else:
+    maketrans = str.maketrans
 from collections import namedtuple
 
 #--- third-party imports
@@ -60,7 +62,8 @@ def rev_comp(dna):
     old_chars += str.lower(old_chars)
     replace_chars = "TGCAN"
     replace_chars += str.lower(replace_chars)
-    trans = string.maketrans(old_chars, replace_chars)
+    trans = maketrans(old_chars, replace_chars)
+        
     return dna.translate(trans)[::-1]
 
 
@@ -77,9 +80,9 @@ def fasta_iter(fasta_name):
     faiter = (x[1] for x in groupby(fa_fh, lambda line: line[0] == ">"))
     for header in faiter:
         # drop the ">"
-        header = header.next()[1:].strip()
+        header = next(header)[1:].strip()
         # join all sequence lines to one.
-        seq = "".join(s.strip() for s in faiter.next())
+        seq = "".join(s.strip() for s in next(faiter))
         yield header, seq
     fa_fh.close()
 
@@ -98,10 +101,6 @@ def cmdline_parser():
                         required=True,
                         dest="fcontigs",
                         help="Input file containing contigs to join (fasta)")
-    parser.add_argument("-n", "--dont-fill-with-ref",
-                        dest="dont_fill_with_ref",
-                        action="store_true",
-                        help="Don't fill gaps with reference (keep Ns)")
     parser.add_argument("-r", "--ref",
                         required=True,
                         dest="fref",
@@ -113,10 +112,14 @@ def cmdline_parser():
     parser.add_argument("--keep-tmp-files",
                         dest="keep_temp_files",
                         action="store_true",
-                        help="Don't delete temp (nucmer etc) files")
+                        help="Don't delete temporary files")
     parser.add_argument("--tmp-dir",
                         dest="tmp_dir", # type="string|int|float"
                         help="directory to save temp files in")
+    parser.add_argument("-n", "--dont-fill-with-ref",
+                        dest="dont_fill_with_ref",
+                        action="store_true",
+                        help="Don't fill gaps with reference (keep Ns)")
 
     return parser
 
@@ -129,7 +132,7 @@ def run_nucmer(fref, fcontigs, out_prefix, nucmer="nucmer"):
     cmd = [nucmer, fref, fcontigs, '-p', out_prefix]
     LOG.debug("Calling {}".format(cmd))
     try:
-        o = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        o = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8')
     except (subprocess.CalledProcessError, OSError):
         LOG.fatal("The following command failed: {}\n".format(" ".join(cmd)))
         raise
@@ -150,7 +153,7 @@ def run_showtiling(fdelta):
     cmd = ['show-tiling', '-p', fpseudo, fdelta]
     LOG.debug("Calling {}".format(cmd))
     try:
-        o = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        o = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8')
     except (subprocess.CalledProcessError, OSError):
         LOG.fatal("The following command failed: {}\n".format(" ".join(cmd)))
         raise
@@ -237,6 +240,7 @@ def merge_contigs_and_ref(contig_seqs, ref_seq, tiling_file, out_fh=sys.stdout):
             LOG.debug("ref {}+1:".format(last_refend))
             sq = ref_seq[contig.ref_name][last_refend:]
             out_fh.write(sq)
+    out_fh.write("\n")
 
 
 def main():
