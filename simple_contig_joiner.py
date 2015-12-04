@@ -106,9 +106,9 @@ def cmdline_parser():
                         dest="fref",
                         help="Reference sequence file (fasta)")
     parser.add_argument("-o", "--output",
-                        required=True,
+                        default='-',
                         dest="fout",
-                        help="output file (fasta)")
+                        help="output file (fasta; '-'=stdout=default")
     parser.add_argument("--keep-tmp-files",
                         dest="keep_temp_files",
                         action="store_true",
@@ -259,7 +259,7 @@ def main():
             LOG.fatal("file '{}' does not exist.".format(fname))
             sys.exit(1)
     for fname in [args.fout]:
-        if os.path.exists(fname):
+        if fname != "-" and os.path.exists(fname):
             LOG.fatal("Refusing to overwrite existing file {}'.".format(fname))
             sys.exit(1)
 
@@ -279,7 +279,12 @@ def main():
 
     if args.dont_fill_with_ref:
         LOG.info("Not replacing gaps with ref. Copying to '{}'".format(args.fout))
-        shutil.copyfile(fpseudo, args.fout)
+        if args.out == "-":
+            with open(args.fout) as fh:
+                for line in fh:
+                    print line
+        else:
+            shutil.copyfile(fpseudo, args.fout)
         if not args.keep_temp_files:
             for f in tmp_files:
                 os.unlink(f)
@@ -296,8 +301,15 @@ def main():
     contigs = dict((x[0].split()[0], x[1])
                    for x in fasta_iter(args.fcontigs))
 
-    merge_contigs_and_ref(contigs, ref_seq, ftiling, out_fh=sys.stdout)
+    if args.fout == "-":
+        out_fh = sys.stdout
+    else:
+        out_fh = open(args.fout, 'w')
 
+    merge_contigs_and_ref(contigs, ref_seq, ftiling, out_fh)
+
+    if out_fh != sys.stdout:
+        out_fh.close()
 
 
 
