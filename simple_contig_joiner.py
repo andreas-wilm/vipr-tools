@@ -63,7 +63,7 @@ def rev_comp(dna):
     replace_chars = "TGCAN"
     replace_chars += str.lower(replace_chars)
     trans = maketrans(old_chars, replace_chars)
-        
+
     return dna.translate(trans)[::-1]
 
 
@@ -201,17 +201,26 @@ def parse_tiling(tiling_file):
                 aln_cov, perc_ident, ori, name])
 
 
-def merge_contigs_and_ref(contig_seqs, ref_seq, tiling_file, out_fh=sys.stdout):
+def merge_contigs_and_ref(contig_seqs, ref_seq, tiling_file, out_file):
     """Merged contigs and reference based tiling data
     """
+
+    if out_file == "-":
+        out_fh = sys.stdout
+    else:
+        out_fh = open(out_file, 'w')
 
     out_fh.write(">joined\n")
     last_refend = 0# exclusive
     contig = None
+    last_refname = None
     for contig in parse_tiling(tiling_file):
         assert contig.ref_name in ref_seq, (
             "Tiling reference name '{}' not found in refseqs".format(
                 contig.ref_name))
+        assert contig.ref_name == last_refname or last_refname is None, (
+            "No support for multiple references")
+        last_refname = contig.ref_name
 
         # if there was a gap before this contig, fill with reference
         if contig.ref_start > last_refend:
@@ -240,7 +249,16 @@ def merge_contigs_and_ref(contig_seqs, ref_seq, tiling_file, out_fh=sys.stdout):
             LOG.debug("ref {}+1:".format(last_refend))
             sq = ref_seq[contig.ref_name][last_refend:]
             out_fh.write(sq)
+    else:
+        LOG.critical("Nothing to join")
+        if out_fh != sys.stdout:
+            out_fh.close()
+            os.unlink(out_file)
+
+        raise ValueError(tiling_file)
     out_fh.write("\n")
+    if out_fh != sys.stdout:
+        out_fh.close()
 
 
 def main():
@@ -301,15 +319,7 @@ def main():
     contigs = dict((x[0].split()[0], x[1])
                    for x in fasta_iter(args.fcontigs))
 
-    if args.fout == "-":
-        out_fh = sys.stdout
-    else:
-        out_fh = open(args.fout, 'w')
-
-    merge_contigs_and_ref(contigs, ref_seq, ftiling, out_fh)
-
-    if out_fh != sys.stdout:
-        out_fh.close()
+    merge_contigs_and_ref(contigs, ref_seq, ftiling, args.fout)
 
 
 
