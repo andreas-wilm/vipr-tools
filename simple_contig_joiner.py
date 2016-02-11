@@ -63,7 +63,7 @@ def rev_comp(dna):
     replace_chars = "TGCAN"
     replace_chars += str.lower(replace_chars)
     trans = maketrans(old_chars, replace_chars)
-        
+
     return dna.translate(trans)[::-1]
 
 
@@ -106,9 +106,9 @@ def cmdline_parser():
                         dest="fref",
                         help="Reference sequence file (fasta)")
     parser.add_argument("-o", "--output",
-                        required=True,
+                        default='-',
                         dest="fout",
-                        help="output file (fasta)")
+                        help="output file (fasta; '-'=stdout=default")
     parser.add_argument("--keep-tmp-files",
                         dest="keep_temp_files",
                         action="store_true",
@@ -212,17 +212,26 @@ def parse_tiling(tiling_file):
                 aln_cov, perc_ident, ori, name])
 
 
-def merge_contigs_and_ref(contig_seqs, ref_seq, tiling_file, out_fh=sys.stdout):
+def merge_contigs_and_ref(contig_seqs, ref_seq, tiling_file, out_file):
     """Merged contigs and reference based tiling data
     """
+
+    if out_file == "-":
+        out_fh = sys.stdout
+    else:
+        out_fh = open(out_file, 'w')
 
     out_fh.write(">joined\n")
     last_refend = 0# exclusive
     contig = None
+    last_refname = None
     for contig in parse_tiling(tiling_file):
         assert contig.ref_name in ref_seq, (
             "Tiling reference name '{}' not found in refseqs".format(
                 contig.ref_name))
+        assert contig.ref_name == last_refname or last_refname is None, (
+            "No support for multiple references")
+        last_refname = contig.ref_name
 
         # if there was a gap before this contig, fill with reference
         if contig.ref_start > last_refend:
@@ -251,7 +260,16 @@ def merge_contigs_and_ref(contig_seqs, ref_seq, tiling_file, out_fh=sys.stdout):
             LOG.debug("ref {}+1:".format(last_refend))
             sq = ref_seq[contig.ref_name][last_refend:]
             out_fh.write(sq)
+    else:
+        LOG.critical("Nothing to join")
+        if out_fh != sys.stdout:
+            out_fh.close()
+            os.unlink(out_file)
+
+        raise ValueError(tiling_file)
     out_fh.write("\n")
+    if out_fh != sys.stdout:
+        out_fh.close()
 
 
 def main():
@@ -270,7 +288,7 @@ def main():
             LOG.fatal("file '{}' does not exist.".format(fname))
             sys.exit(1)
     for fname in [args.fout]:
-        if os.path.exists(fname):
+        if fname != "-" and os.path.exists(fname):
             LOG.fatal("Refusing to overwrite existing file {}'.".format(fname))
             sys.exit(1)
 
@@ -294,7 +312,12 @@ def main():
 
     if args.dont_fill_with_ref:
         LOG.info("Not replacing gaps with ref. Copying to '{}'".format(args.fout))
-        shutil.copyfile(fpseudo, args.fout)
+        if args.out == "-":
+            with open(args.fout) as fh:
+                for line in fh:
+                    print line
+        else:
+            shutil.copyfile(fpseudo, args.fout)
         if not args.keep_temp_files:
             for f in tmp_files:
                 os.unlink(f)
@@ -311,8 +334,7 @@ def main():
     contigs = dict((x[0].split()[0], x[1])
                    for x in fasta_iter(args.fcontigs))
 
-    merge_contigs_and_ref(contigs, ref_seq, ftiling, out_fh=sys.stdout)
-
+    merge_contigs_and_ref(contigs, ref_seq, ftiling, args.fout)
 
 
 
