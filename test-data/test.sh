@@ -20,11 +20,12 @@ for ref in DENV_1.fa HIV_1.fa; do
     outfa="out.fa"
     echo "$NUM_TESTS times generating random contigs from $ref and stitching them back together." | tee -a $log
     for i in $($seq 1 $NUM_TESTS); do
+        test -e $randfa && rm $randfa
+        test -e $outfa && rm $outfa        
         python ./create_contigs.py $ref > $randfa;
-        rm $outfa 2>/dev/null
         cmd="$JOINER -c $randfa -r $ref -o $outfa -v -v"
         echo "DEBUG Executing $cmd" >> $log
-        eval $cmd 2>>$log;
+        eval $cmd 2>>$log;# || echo "ERROR cmd failed: $cmd" 1>&2 && exit 1;
         # should only output one md5
         num_sqs=$(for f in $ref $outfa; do grep -v '^>' $f | tr -d '\n'  | $md5; done | sort -u | wc -l)
         if [ $(echo $num_sqs) -ne 1 ]; then

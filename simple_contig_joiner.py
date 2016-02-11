@@ -128,13 +128,13 @@ def nucmer_in_path():
     """check whether nucmer is in path
     """
     try:
-        res = subprocess.check_output(["nucmer", "-V"], stderr=subprocess.STDOUT)
+        _res = subprocess.check_output(["nucmer", "-V"], stderr=subprocess.STDOUT)
     except OSError:
         return False
     else:
         return True
 
-    
+
 def run_nucmer(fref, fcontigs, out_prefix, nucmer="nucmer"):
     """Run's nucmer on given reference and query (contigs).
     Returns path to delta file"""
@@ -295,8 +295,8 @@ def main():
     if not nucmer_in_path():
         LOG.fatal("Couldn't find nucmer in PATH")
         sys.exit(1)
-        
-    
+
+
     tmp_files = []
 
     # run mummer's nucmer
