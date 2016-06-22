@@ -22,7 +22,7 @@ for ref in DENV_1.fa HIV_1.fa; do
     for i in $($seq 1 $NUM_TESTS); do
         test -e $randfa && rm $randfa
         test -e $outfa && rm $outfa        
-        python ./create_contigs.py $ref > $randfa;
+        python2 ./create_contigs.py $ref > $randfa;
         cmd="$JOINER -c $randfa -r $ref -o $outfa -v -v"
         echo "DEBUG Executing $cmd" >> $log
         eval $cmd 2>>$log;# || echo "ERROR cmd failed: $cmd" 1>&2 && exit 1;

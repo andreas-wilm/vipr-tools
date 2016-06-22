@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 """Stitch contigs together by means of Mummer's nucmer and fill gaps
 with given reference sequence
 """
@@ -265,7 +265,6 @@ def merge_contigs_and_ref(contig_seqs, ref_seq, tiling_file, out_file):
         if out_fh != sys.stdout:
             out_fh.close()
             os.unlink(out_file)
-
         raise ValueError(tiling_file)
     out_fh.write("\n")
     if out_fh != sys.stdout:
@@ -333,8 +332,10 @@ def main():
     assert len(ref_seq) == 1, ("Only one reference sequence supported for N filling")
     contigs = dict((x[0].split()[0], x[1])
                    for x in fasta_iter(args.fcontigs))
-
-    merge_contigs_and_ref(contigs, ref_seq, ftiling, args.fout)
+    try:
+        merge_contigs_and_ref(contigs, ref_seq, ftiling, args.fout)
+    except ValueError:
+        sys.exit(1)
 
 
 
