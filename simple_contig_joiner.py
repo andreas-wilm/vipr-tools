@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 """Stitch contigs together by means of Mummer's nucmer and fill gaps
 with given reference sequence
 """
@@ -13,11 +13,15 @@ import subprocess
 import tempfile
 import shutil
 from itertools import groupby
-if sys.version_info.major == 2:
-    from string import maketrans
-else:
-    maketrans = str.maketrans
 from collections import namedtuple
+try:
+    if sys.version_info.major == 2:
+        from string import maketrans
+    else:
+        maketrans = str.maketrans
+except AttributeError:
+    sys.stderr.write("FATAL: Unsupported Python version!\n")
+    raise
 
 #--- third-party imports
 #
@@ -141,11 +145,11 @@ def run_nucmer(fref, fcontigs, out_prefix, nucmer="nucmer"):
 
     fdelta = out_prefix + ".delta"
     cmd = [nucmer, fref, fcontigs, '-p', out_prefix]
-    LOG.debug("Calling {}".format(cmd))
+    LOG.debug("Calling %s", cmd)
     try:
         o = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8')
     except (subprocess.CalledProcessError, OSError):
-        LOG.fatal("The following command failed: {}\n".format(" ".join(cmd)))
+        LOG.fatal("The following command failed: %s\n", " ".join(cmd))
         raise
     assert os.path.exists(fdelta), (
         "Expected file '{}' missing. Command was: '{}'. Output was '{}'".format(
@@ -162,19 +166,19 @@ def run_showtiling(fdelta):
     fpseudo = fdelta + ".pseudo.fa"
     ftiling = fdelta + ".tiling.txt"
     cmd = ['show-tiling', '-p', fpseudo, fdelta]
-    LOG.debug("Calling {}".format(cmd))
+    LOG.debug("Calling %s", cmd)
     try:
         o = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8')
     except (subprocess.CalledProcessError, OSError):
-        LOG.fatal("The following command failed: {}\n".format(" ".join(cmd)))
+        LOG.fatal("The following command failed: %s\n", " ".join(cmd))
         raise
     assert os.path.exists(fpseudo), (
         "Expected file '{}' missing. Command was: '{}'. Output was '{}'".format(
             fpseudo, ' '.join(cmd), o))
     with open(ftiling, 'w') as tile_fh:
         tile_fh.write(o)
-    LOG.info("Pseudo molecule written to '{}'".format(fpseudo))
-    LOG.info("Tiling info written to '{}'".format(ftiling))
+    LOG.info("Pseudo molecule written to '%s'", fpseudo)
+    LOG.info("Tiling info written to '%s'", ftiling)
     return fpseudo, ftiling
 
 
@@ -235,7 +239,7 @@ def merge_contigs_and_ref(contig_seqs, ref_seq, tiling_file, out_file):
 
         # if there was a gap before this contig, fill with reference
         if contig.ref_start > last_refend:
-            LOG.debug("ref {}+1:{}".format(last_refend, contig.ref_start))
+            LOG.debug("ref %s+1:%s", last_refend, contig.ref_start)
             sq = ref_seq[contig.ref_name][last_refend:contig.ref_start]
             out_fh.write(sq)
 
@@ -245,10 +249,10 @@ def merge_contigs_and_ref(contig_seqs, ref_seq, tiling_file, out_file):
         if contig.gap2next < 0:
             printto = contig.gap2next
         if contig.ori == '+':
-            LOG.debug("con+ {}+1:{}".format(0, printto))
+            LOG.debug("con+ %s+1:%s", 0, printto)
             sq = contig_seqs[contig.name][:printto]
         elif contig.ori == '-':
-            LOG.debug("con- {}+1:{}".format(0, printto))
+            LOG.debug("con- %s+1:%s", 0, printto)
             sq = rev_comp(contig_seqs[contig.name])[:printto]
         else:
             raise ValueError(contig.ori)
@@ -257,7 +261,7 @@ def merge_contigs_and_ref(contig_seqs, ref_seq, tiling_file, out_file):
 
     if contig is not None:
         if last_refend < len(ref_seq[contig.ref_name]):
-            LOG.debug("ref {}+1:".format(last_refend))
+            LOG.debug("ref %s+1:", last_refend)
             sq = ref_seq[contig.ref_name][last_refend:]
             out_fh.write(sq)
     else:
@@ -284,11 +288,11 @@ def main():
 
     for fname in [args.fref, args.fcontigs]:
         if not os.path.exists(fname):
-            LOG.fatal("file '{}' does not exist.".format(fname))
+            LOG.fatal("file '%s' does not exist.", fname)
             sys.exit(1)
     for fname in [args.fout]:
         if fname != "-" and os.path.exists(fname):
-            LOG.fatal("Refusing to overwrite existing file {}'.".format(fname))
+            LOG.fatal("Refusing to overwrite existing file %s'.", fname)
             sys.exit(1)
 
     if not nucmer_in_path():
@@ -304,17 +308,17 @@ def main():
         delete=False, dir=args.tmp_dir).name
     fdelta = run_nucmer(args.fref, args.fcontigs, out_prefix)
     tmp_files.append(fdelta)
-    LOG.info("Delta written to '{}'".format(fdelta))
+    LOG.info("Delta written to '%s'", fdelta)
 
     fpseudo, ftiling = run_showtiling(fdelta)
     tmp_files.extend([fpseudo, ftiling])
 
     if args.dont_fill_with_ref:
-        LOG.info("Not replacing gaps with ref. Copying to '{}'".format(args.fout))
+        LOG.info("Not replacing gaps with ref. Copying to '%s'", args.fout)
         if args.out == "-":
             with open(args.fout) as fh:
                 for line in fh:
-                    print line
+                    print(line)
         else:
             shutil.copyfile(fpseudo, args.fout)
         if not args.keep_temp_files:
