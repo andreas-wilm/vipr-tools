@@ -124,6 +124,12 @@ def cmdline_parser():
                         dest="dont_fill_with_ref",
                         action="store_true",
                         help="Don't fill gaps with reference (keep Ns)")
+    parser.add_argument("-b", "--bed",
+                        dest="gapfill_bed",
+                        help="Store coordinates of gap-filled positions (filled with reference)")
+    default = "assembly"
+    parser.add_argument("-s", "--seq-id", default=default,
+                        help="Sequence id to assign to newly created sequence (default: {})".format(default))
 
     return parser
 
@@ -136,6 +142,7 @@ def nucmer_in_path():
     except OSError:
         return False
     else:
+        sys.stderr.write("Using {}".format(_res.decode()))
         return True
 
 
@@ -216,16 +223,37 @@ def parse_tiling(tiling_file):
                 aln_cov, perc_ident, ori, name])
 
 
-def merge_contigs_and_ref(contig_seqs, ref_seq, tiling_file, out_file):
+def write_seq(fn, sid, sq):
+    fmt_sq = ">{}\n{}\n".format(sid, sq)
+
+    if fn == "-":
+        print(fmt_sq)
+    else:
+        with open(fn, 'w') as fh:
+            fh.write(fmt_sq)
+
+
+def write_bed(fn, coords):
+    fmt_bed = "\n".join(["{:s}\t{:d}\t{:d}".format(
+        c[0], c[1], c[2]) for c in coords])
+    fmt_bed += "\n"
+
+    if fn == "-":
+        print(fmt_bed)
+    else:
+        with open(fn, 'w') as fh:
+            fh.write(fmt_bed)
+
+
+def merge_contigs_and_ref(contig_seqs, ref_seq, tiling_file, out_file,
+                          seqid="assembly", gapfill_bed_out=None):
     """Merged contigs and reference based tiling data
     """
 
-    if out_file == "-":
-        out_fh = sys.stdout
-    else:
-        out_fh = open(out_file, 'w')
+    assert gapfill_bed_out != out_file
+    bed_coords = []
+    out_seq = ""
 
-    out_fh.write(">joined\n")
     last_refend = 0# exclusive
     contig = None
     last_refname = None
@@ -241,8 +269,8 @@ def merge_contigs_and_ref(contig_seqs, ref_seq, tiling_file, out_file):
         if contig.ref_start > last_refend:
             LOG.debug("ref %s+1:%s", last_refend, contig.ref_start)
             sq = ref_seq[contig.ref_name][last_refend:contig.ref_start]
-            out_fh.write(sq)
-
+            bed_coords.append([seqid, len(out_seq), len(out_seq)+len(sq)])
+            out_seq += sq
         # if there's overlap with the next contig we clip the current
         # one (assumes all contigs are equally good)
         printto = None
@@ -251,28 +279,30 @@ def merge_contigs_and_ref(contig_seqs, ref_seq, tiling_file, out_file):
         if contig.ori == '+':
             LOG.debug("con+ %s+1:%s", 0, printto)
             sq = contig_seqs[contig.name][:printto]
+            out_seq += sq
         elif contig.ori == '-':
             LOG.debug("con- %s+1:%s", 0, printto)
             sq = rev_comp(contig_seqs[contig.name])[:printto]
+            out_seq += sq
         else:
             raise ValueError(contig.ori)
-        out_fh.write(sq)
         last_refend = contig.ref_end
 
     if contig is not None:
         if last_refend < len(ref_seq[contig.ref_name]):
             LOG.debug("ref %s+1:", last_refend)
+            bed_coords.append([seqid, len(out_seq), len(out_seq)+len(sq)])
             sq = ref_seq[contig.ref_name][last_refend:]
-            out_fh.write(sq)
+            out_seq += sq
     else:
         LOG.critical("Nothing to join")
-        if out_fh != sys.stdout:
-            out_fh.close()
-            os.unlink(out_file)
         raise ValueError(tiling_file)
-    out_fh.write("\n")
-    if out_fh != sys.stdout:
-        out_fh.close()
+
+    write_seq(out_file, seqid, out_seq)
+
+    if gapfill_bed_out:
+        write_bed(gapfill_bed_out, bed_coords)
+
 
 
 def main():
@@ -290,8 +320,8 @@ def main():
         if not os.path.exists(fname):
             LOG.fatal("file '%s' does not exist.", fname)
             sys.exit(1)
-    for fname in [args.fout]:
-        if fname != "-" and os.path.exists(fname):
+    for fname in [args.fout, args.gapfill_bed]:
+        if fname and fname != "-" and os.path.exists(fname):
             LOG.fatal("Refusing to overwrite existing file %s'.", fname)
             sys.exit(1)
 
@@ -337,7 +367,8 @@ def main():
     contigs = dict((x[0].split()[0], x[1])
                    for x in fasta_iter(args.fcontigs))
     try:
-        merge_contigs_and_ref(contigs, ref_seq, ftiling, args.fout)
+        merge_contigs_and_ref(contigs, ref_seq, ftiling, args.fout,
+                              seqid=args.seq_id, gapfill_bed_out=args.gapfill_bed)
     except ValueError:
         sys.exit(1)
 
