@@ -1,12 +1,15 @@
+#!/usr/bin/env python
+
 import sys
 import random
+
 from Bio import SeqIO
 
 fasta_in = sys.argv[1]
 outfh = sys.stdout
 
 seqrecs = list(SeqIO.parse(fasta_in, "fasta"))
-               
+
 num_contigs = 10
 contig_no = 0
 for sr in seqrecs:
@@ -18,7 +21,7 @@ for sr in seqrecs:
             seq = seq.reverse_complement()
             ori = "-"
         else:
-            ori="+"
+            ori = "+"
         contig_no += 1
         seqname = "contig-{}-{}-{}-ori{}".format(contig_no, start_pos, end_pos, ori)
         outfh.write(">{}\n{}\n".format(seqname, seq.seq))
