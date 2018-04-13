@@ -78,16 +78,16 @@ cp $startfa $consfa
 # now map, call variants, insert into ref if >50% and repeat if changes were made
 while [ 1 ]; do
     let iter=iter+1
-    echo "Iteration ${iter}: indexing"
+    echo "Iteration ${iter} $(date +%Y%m%d-%H%M): indexing"
     samtools faidx $consfa
     bwa index $consfa >& ${consfa}.log
 
-    echo "Iteration ${iter}: aligning reads"
+    echo "Iteration ${iter} $(date +%Y%m%d-%H%M): aligning reads"
     bam=$tmpdir/cons.${iter}.bam
     bwa mem -t $threads $consfa $fq1 $fq2 2>${bam}.log | \
         samtools sort -o $bam -T ${bam}.tmp -
 
-    echo "Iteration ${iter}: processing BAM"
+    echo "Iteration ${iter} $(date +%Y%m%d-%H%M): processing BAM"
     # FIXME: try split and join for speedup
     proc_bam=$tmpdir/cons_proc.${iter}.bam
     lofreq viterbi -f $consfa $bam | \
@@ -96,12 +96,12 @@ while [ 1 ]; do
         samtools sort -o $proc_bam -T ${proc_bam}.tmp -
     samtools index $proc_bam
     
-    echo "Iteration ${iter}: calling variants"
+    echo "Iteration ${iter} $(date +%Y%m%d-%H%M): calling variants"
     vcf=${proc_bam%.bam}.lf.vcf.gz
     lofreq call-parallel --pp-threads ${threads} -f $consfa \
            --call-indels -o $vcf $proc_bam >& ${vcf}.log
 
-    echo "Iteration ${iter}: filtering variants"
+    echo "Iteration ${iter} $(date +%Y%m%d-%H%M): filtering variants"
     proc_vcf=${vcf%.vcf.gz}.flt.vcf.gz
     bcftools view -o z -e 'AF<0.5' $vcf -O z -o $proc_vcf
 
@@ -113,7 +113,7 @@ while [ 1 ]; do
         break
     fi
     
-    echo "Iteration ${iter}: incorporating filtered variants into consensus"
+    echo "Iteration ${iter} $(date +%Y%m%d-%H%M): incorporating filtered variants into consensus"
     tabix $proc_vcf
     newconsfa=$(mktemp -p $tmpdir cons.XXXXXX.${iter}.fa)
     rm $newconsfa    
