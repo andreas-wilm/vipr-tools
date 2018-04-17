@@ -9,6 +9,7 @@ import gzip
 from collections import OrderedDict
 from itertools import groupby
 import argparse
+import textwrap
 
 #--- third-party imports
 #
@@ -92,8 +93,7 @@ def gaps_to_n(fasta_fn, gencov_fn, mincov=1):
             outseql[pos] = 'N'
     outseqstr = ''.join(outseql)
 
-    print(">%s\n%s\n" % (seqid, outseqstr))
-
+    print(">%s\n%s\n" % (seqid, textwrap.fill(outseqstr, width=80)))
 
 
 def main():
