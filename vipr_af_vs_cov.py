@@ -119,7 +119,7 @@ def plot(cov_gzfile, vcf_gzfile, plot_fn, bed_fn=None):
     lgd_cov = ax1.plot(x1, y1, color=c, label="Coverage")
     ax1.set_ylabel('Coverage', color=c, size=ylabel_size, weight='bold')
     #ax1.tick_params('y', color=c)
-    ax1.set_yscale('log', basex=10)
+    ax1.set_yscale('log')
     ax1.set_xlabel('Position', size='medium', weight='bold')
 
     ax1.set_ylim(bottom=1)# log!
