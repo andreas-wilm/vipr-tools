@@ -83,7 +83,9 @@ def gaps_to_n(fasta_fn, gencov_fn, mincov=1):
     assert gencov_seqid.split(' ')[0] == seqid.split(' ')[0]
 
     assert min(genomecov[gencov_seqid].values()) >= 0
-    assert len(seqstr) < max(genomecov[gencov_seqid].values())
+    assert len(seqstr) == max(genomecov[gencov_seqid].keys()) + 1, (
+        "sequence has %d characters and genomecov max is %d" % (
+            len(seqstr), max(genomecov[gencov_seqid].keys())))
 
     outseql = list(seqstr)
     for pos in range(len(seqstr)):
