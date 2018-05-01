@@ -66,7 +66,7 @@ which lofreq >/dev/null || exit 1
 which bcftools >/dev/null || exit 1
 which tabix >/dev/null || exit 1
 
-maxiter=${maxiter:10}
+maxiter=${maxiter:-10}
 tmpdir=$(mktemp -d)
 echo "Workdir is $tmpdir"
 
@@ -103,7 +103,7 @@ while [ 1 ]; do
 
     echo "Iteration ${iter} $(date +%Y%m%d-%H%M): filtering variants"
     proc_vcf=${vcf%.vcf.gz}.flt.vcf.gz
-    bcftools view -o z -e 'AF<0.5' $vcf -O z -o $proc_vcf
+    bcftools view -i 'AF>0.5' $vcf -O z -o $proc_vcf
 
     # stop if filtered vcf is empty
     nlines=$(zcat $proc_vcf | sed  '/^#/d' | wc -l)
